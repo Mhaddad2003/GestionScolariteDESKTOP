@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter.font import Font
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 
 class ScolariteApp:
@@ -26,6 +26,9 @@ class ScolariteApp:
         self.root.iconbitmap("images/appIcone.ico")
 
         self.pages = {}
+        self.form_entries = {}  # Dictionary to store entries for each page
+        self.tables = {}  # Dictionary to store tables for each page
+        self.selected_item = None  # Track the selected row in the table
 
         self.create_main_page()
         self.create_secondary_pages()
@@ -124,7 +127,8 @@ class ScolariteApp:
         form_frame = tk.Frame(page, bg="#2c3e50")
         form_frame.place(relx=0.3, rely=0.5, anchor="center")
 
-        self.form_entries = {}  
+        # Store entries for this specific page
+        self.form_entries[page_name] = {}
 
         for i, (field_name, field_type, *extra) in enumerate(fields):
             label = tk.Label(
@@ -139,23 +143,30 @@ class ScolariteApp:
             if field_type == "entry":
                 entry = tk.Entry(form_frame, font=entry_font)
                 entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
-                self.form_entries[field_name] = entry 
+                self.form_entries[page_name][field_name] = entry  # Store the entry widget
 
         form_frame.grid_columnconfigure(1, weight=1)
 
         table_frame = tk.Frame(page, bg="#2c3e50")
         table_frame.place(relx=0.71, rely=0.5, anchor="center")
 
-        self.table = ttk.Treeview(table_frame, columns=table_columns, show="headings")
+        # Create and store the table for this page
+        table = ttk.Treeview(table_frame, columns=table_columns, show="headings")
         for col in table_columns:
-            self.table.heading(col, text=col)
-            self.table.column(col, width=100)
+            table.heading(col, text=col)
+            table.column(col, width=100)
 
-        self.table.grid(row=0, column=0, padx=10, pady=10)
+        table.grid(row=0, column=0, padx=10, pady=10)
 
-        scrollbar = tk.Scrollbar(table_frame, orient="vertical", command=self.table.yview)
-        self.table.configure(yscrollcommand=scrollbar.set)
+        scrollbar = tk.Scrollbar(table_frame, orient="vertical", command=table.yview)
+        table.configure(yscrollcommand=scrollbar.set)
         scrollbar.grid(row=0, column=1, sticky='ns', padx=5, pady=10)
+
+        # Bind the table row selection event
+        table.bind("<ButtonRelease-1>", lambda event: self.on_table_row_select(page_name, table_columns))
+
+        # Store the table in the dictionary
+        self.tables[page_name] = table
 
         button_frame = tk.Frame(page, bg="#2c3e50")
         button_frame.place(relx=0.5, rely=0.85, anchor="center")
@@ -173,15 +184,60 @@ class ScolariteApp:
             event.widget.configure(bg="#c0392b")  
 
         def clear_inputs():
-           for entry in self.form_entries.values():
-            if isinstance(entry, tk.Entry): 
-                entry.delete(0, "end")  
+            for entry in self.form_entries[page_name].values():
+                if isinstance(entry, tk.Entry):  # Ensure it's an Entry widget
+                    entry.delete(0, tk.END)  # Clear the entry from start to end
+
+        def add_to_table():
+            # Check if all fields are filled
+            for field_name, entry in self.form_entries[page_name].items():
+                if not entry.get().strip():  # Check if the entry is empty or contains only whitespace
+                    messagebox.showwarning("Champs vides", "Veuillez remplir tous les champs!")
+                    return  # Exit the function if any field is empty
+
+            # If all fields are filled, add the data to the table
+            data = []
+            for col in table_columns:
+                data.append(self.form_entries[page_name][col].get())
+            self.tables[page_name].insert("", "end", values=data)
+
+            # Clear the input fields after adding to the table
+            clear_inputs()
+
+        def delete_from_table():
+            selected_item = self.tables[page_name].selection()
+            if selected_item:
+                # Delete the selected row from the table
+                self.tables[page_name].delete(selected_item)
+                # Clear the input fields after deletion
+                clear_inputs()
+
+        def modify_table():
+            if not self.selected_item:
+                messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une ligne à modifier!")
+                return
+
+            # Check if all fields are filled
+            for field_name, entry in self.form_entries[page_name].items():
+                if not entry.get().strip():  # Check if the entry is empty or contains only whitespace
+                    messagebox.showwarning("Champs vides", "Veuillez remplir tous les champs!")
+                    return  # Exit the function if any field is empty
+
+            # Update the selected row with the new values
+            data = []
+            for col in table_columns:
+                data.append(self.form_entries[page_name][col].get())
+            self.tables[page_name].item(self.selected_item, values=data)
+
+            # Clear the input fields after modification
+            clear_inputs()
+            self.selected_item = None  # Reset the selected item
 
         buttons = [
             ("Vider", clear_inputs), 
-            ("Ajouter", lambda: self.add_to_table(table_columns)),
-            ("Modifier", lambda: self.modify_table(table_columns)),
-            ("Supprimer", lambda: self.delete_from_table())
+            ("Ajouter", add_to_table),
+            ("Modifier", modify_table),
+            ("Supprimer", delete_from_table)
         ]
 
         for i, (text, command) in enumerate(buttons):
@@ -234,21 +290,16 @@ class ScolariteApp:
 
         self.add_footer(page)  
 
-    def add_to_table(self, table_columns):
-        data = []
-        for col in table_columns:
-            data.append(self.form_entries[col].get())
-        self.table.insert("", "end", values=data)
-        for col in table_columns:
-            self.form_entries[col].delete(0, "end")
-
-    def modify_table(self, table_columns):
-        pass  
-
-    def delete_from_table(self):
-        selected_item = self.table.selection()
-        if selected_item:
-            self.table.delete(selected_item)
+    def on_table_row_select(self, page_name, table_columns):
+        """Handles row selection in the table."""
+        self.selected_item = self.tables[page_name].selection()
+        if self.selected_item:
+            # Get the selected row's values
+            row_values = self.tables[page_name].item(self.selected_item, "values")
+            # Populate the input fields with the selected row's values
+            for col, value in zip(table_columns, row_values):
+                self.form_entries[page_name][col].delete(0, tk.END)
+                self.form_entries[page_name][col].insert(0, value)
 
     def create_secondary_pages(self):
 
@@ -286,6 +337,7 @@ class ScolariteApp:
         for page in self.pages.values():
             page.pack_forget()
         self.pages[page_name].pack(fill="both", expand=True)
+        self.current_page = page_name  # Track the current page
 
 if __name__ == "__main__":
     root = tk.Tk()
