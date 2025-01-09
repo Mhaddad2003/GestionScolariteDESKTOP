@@ -2,22 +2,32 @@ import sqlite3
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import *
 
-
 def connect_db():
     return sqlite3.connect("Gestion_Scolarite.db")
 
-
-class Enseignant(QMainWindow):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Gestion des Enseignants")
-        self.setGeometry(300, 300, 800, 600)
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
+        self.setWindowTitle("Gestion Scolarité")
+        self.setGeometry(100, 100, 800, 600)
 
-        # Main Layout
-        self.layout = QVBoxLayout()
-        self.central_widget.setLayout(self.layout)
+        # Create a tab widget
+        self.tabs = QTabWidget()
+        self.setCentralWidget(self.tabs)
+
+        # Add tabs for each functionality
+        self.tabs.addTab(Enseignant(), "Enseignants")
+        self.tabs.addTab(Module(), "Modules")
+        self.tabs.addTab(Etudiant(), "Etudiants")
+        self.tabs.addTab(InscriptionApp(), "Inscriptions")
+
+class Enseignant(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        layout = QVBoxLayout()
 
         form_layout = QFormLayout()
         self.nom_input = QLineEdit()
@@ -29,28 +39,28 @@ class Enseignant(QMainWindow):
         form_layout.addRow("Prénom:", self.prenom_input)
         form_layout.addRow("CIN:", self.cin_input)
         form_layout.addRow("Département:", self.departement_input)
-        self.layout.addLayout(form_layout)
+        layout.addLayout(form_layout)
 
         self.clear_btn = QPushButton("Effacer les Champs")
         self.clear_btn.setFixedWidth(150)
         self.clear_btn.clicked.connect(self.clear_inputs)
 
-        button_layout = QHBoxLayout()
-        button_layout.addSpacing(20)
-
         self.add_btn = QPushButton("Ajouter Enseignant")
         self.add_btn.setFixedWidth(150)
         self.add_btn.clicked.connect(self.ajouter_enseignant)
+
+        button_layout = QHBoxLayout()
         button_layout.addWidget(self.clear_btn)
         button_layout.addWidget(self.add_btn)
-        self.layout.addLayout(button_layout)
+        layout.addLayout(button_layout)
 
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["Nom", "Prénom", "CIN", "Département", "Supprimer", "Modifier"])
-        self.layout.addWidget(self.table)
+        layout.addWidget(self.table)
 
         self.lister_enseignant()
+        self.setLayout(layout)
 
     def ajouter_enseignant(self):
         nom = self.nom_input.text()
@@ -65,10 +75,7 @@ class Enseignant(QMainWindow):
         try:
             conn = connect_db()
             curs = conn.cursor()
-            curs.execute("""
-            INSERT INTO Enseignant (nom, prenom, cin, departement) 
-            VALUES (?, ?, ?, ?);
-            """, (nom, prenom, cin, departement))
+            curs.execute("INSERT INTO Enseignant (nom, prenom, cin, departement) VALUES (?, ?, ?, ?);", (nom, prenom, cin, departement))
             conn.commit()
             conn.close()
 
@@ -115,12 +122,12 @@ class Enseignant(QMainWindow):
             self.lister_enseignant()
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
     def clear_inputs(self):
         self.nom_input.clear()
         self.prenom_input.clear()
         self.cin_input.clear()
         self.departement_input.clear()
-
         self.switch_ajout()
 
     def modifier_enseignant(self, ens_id):
@@ -158,16 +165,13 @@ class Enseignant(QMainWindow):
         try:
             conn = connect_db()
             curs = conn.cursor()
-            curs.execute(""" UPDATE Enseignant 
-               SET nom = ?, prenom = ?, cin = ?, departement = ? 
-               WHERE id = ?;""", (nom, prenom, cin, departement, ens_id))
+            curs.execute("UPDATE Enseignant SET nom = ?, prenom = ?, cin = ?, departement = ? WHERE id = ?;", (nom, prenom, cin, departement, ens_id))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Enseignant modifié avec succès!")
             self.clear_inputs()
             self.lister_enseignant()
-
             self.switch_ajout()
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
@@ -176,19 +180,15 @@ class Enseignant(QMainWindow):
         self.add_btn.setText("Ajouter Enseignant")
         self.add_btn.clicked.disconnect()
         self.add_btn.clicked.connect(self.ajouter_enseignant)
-class Module(QMainWindow):
+
+class Module(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Gestion des Modules")
-        self.setGeometry(300, 300, 700, 500)
-        self.main_widget = QWidget()
-        self.setCentralWidget(self.main_widget)
+        self.initUI()
 
-        # Main Layout
-        self.layout = QVBoxLayout()
-        self.main_widget.setLayout(self.layout)
+    def initUI(self):
+        layout = QVBoxLayout()
 
-        # Form Layout
         form_layout = QFormLayout()
         self.ens_id = QLineEdit()
         self.matiere = QLineEdit()
@@ -197,9 +197,8 @@ class Module(QMainWindow):
         form_layout.addRow("Enseignant ID:", self.ens_id)
         form_layout.addRow("Matière:", self.matiere)
         form_layout.addRow("Semestre:", self.semestre)
-        self.layout.addLayout(form_layout)
+        layout.addLayout(form_layout)
 
-        # Buttons Layout
         self.clear_btn = QPushButton("Effacer les Champs")
         self.clear_btn.setFixedWidth(150)
         self.clear_btn.clicked.connect(self.clear_inputs)
@@ -211,15 +210,15 @@ class Module(QMainWindow):
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.clear_btn)
         button_layout.addWidget(self.add_btn)
-        self.layout.addLayout(button_layout)
+        layout.addLayout(button_layout)
 
-        # Table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["ID", "Enseignant ID", "Matière", "Semestre", "Supprimer", "Modifier"])
-        self.layout.addWidget(self.table)
+        layout.addWidget(self.table)
 
         self.Lister_Module()
+        self.setLayout(layout)
 
     def Ajouter_Module(self):
         ens_id = self.ens_id.text()
@@ -239,17 +238,13 @@ class Module(QMainWindow):
                 QMessageBox.warning(self, "Erreur", "L'enseignant avec cet ID n'existe pas!")
                 return
 
-            curs.execute("""
-                            INSERT INTO Module (Enseignant_id, matiere, semestre) 
-                            VALUES (?, ?, ?);
-                            """, (ens_id, matiere, semestre))
+            curs.execute("INSERT INTO Module (Enseignant_id, matiere, semestre) VALUES (?, ?, ?);", (ens_id, matiere, semestre))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Module ajouté avec succès!")
             self.clear_inputs()
             self.Lister_Module()
-
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
@@ -268,7 +263,6 @@ class Module(QMainWindow):
                 for j, data in enumerate(module):
                     self.table.setItem(i, j, QTableWidgetItem(str(data)))
 
-                # Delete Button
                 del_btn = QPushButton("Supprimer")
                 del_btn.clicked.connect(lambda _, id=module[0]: self.Sup_Module(id))
                 self.table.setCellWidget(i, 4, del_btn)
@@ -281,7 +275,6 @@ class Module(QMainWindow):
 
     def Sup_Module(self, module_id):
         try:
-            print(module_id)
             conn = connect_db()
             curs = conn.cursor()
             curs.execute("DELETE FROM Module WHERE id = ?", (module_id,))
@@ -305,11 +298,9 @@ class Module(QMainWindow):
             curs = conn.cursor()
             curs.execute("SELECT Enseignant_id, matiere, semestre FROM Module WHERE id = ?", (module_id,))
             module = curs.fetchone()
-            print("hi")
             conn.close()
 
             if module:
-                print(module)
                 self.ens_id.setText(str(module[0]))
                 self.matiere.setText(module[1])
                 self.semestre.setText(module[2])
@@ -321,8 +312,6 @@ class Module(QMainWindow):
                 QMessageBox.critical(self, "Erreur", f"Aucun module trouvé avec l'id {module_id}!")
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
-        except Exception as e:
-            print(f"Error: {e}")
 
     def Applique_Modification(self, module_id):
         ens_id = self.ens_id.text()
@@ -336,9 +325,7 @@ class Module(QMainWindow):
         try:
             conn = connect_db()
             curs = conn.cursor()
-            curs.execute(""" UPDATE Module 
-               SET Enseignant_id = ?, matiere = ?, semestre = ? 
-               WHERE id = ?;""", (ens_id, matiere, semestre, module_id))
+            curs.execute("UPDATE Module SET Enseignant_id = ?, matiere = ?, semestre = ? WHERE id = ?;", (ens_id, matiere, semestre, module_id))
             conn.commit()
             conn.close()
 
@@ -353,19 +340,15 @@ class Module(QMainWindow):
         self.add_btn.setText("Ajouter Module")
         self.add_btn.clicked.disconnect()
         self.add_btn.clicked.connect(self.Ajouter_Module)
-class Etudiant(QMainWindow):
+
+class Etudiant(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Gestion des Etudiants")
-        self.setGeometry(300, 300, 700, 500)
-        self.main_widget = QWidget()
-        self.setCentralWidget(self.main_widget)
+        self.initUI()
 
-        # Main Layout
-        self.layout = QVBoxLayout()
-        self.main_widget.setLayout(self.layout)
+    def initUI(self):
+        layout = QVBoxLayout()
 
-        # Form Layout
         form_layout = QFormLayout()
         self.num_apogee = QLineEdit()
         self.nom = QLineEdit()
@@ -377,30 +360,29 @@ class Etudiant(QMainWindow):
         form_layout.addRow("Nom:", self.nom)
         form_layout.addRow("Prenom:", self.prenom)
         form_layout.addRow("CIN:", self.cin)
-        form_layout.addRow("date de naissance:", self.date_naiss)
-        self.layout.addLayout(form_layout)
+        form_layout.addRow("Date de naissance:", self.date_naiss)
+        layout.addLayout(form_layout)
 
-        # Buttons Layout
         self.clear_btn = QPushButton("Effacer les Champs")
         self.clear_btn.setFixedWidth(150)
         self.clear_btn.clicked.connect(self.clear_inputs)
 
-        self.add_btn = QPushButton("Ajouter Module")
+        self.add_btn = QPushButton("Ajouter Etudiant")
         self.add_btn.setFixedWidth(150)
         self.add_btn.clicked.connect(self.Ajouter_Etudiant)
 
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.clear_btn)
         button_layout.addWidget(self.add_btn)
-        self.layout.addLayout(button_layout)
+        layout.addLayout(button_layout)
 
-        # Table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["Numero d'apogee", "Nom", "Prenom", "CIN", "Date de Naissance", "Supprimer", "Modifier"])
-        self.layout.addWidget(self.table)
+        layout.addWidget(self.table)
 
         self.Lister_Etudiant()
+        self.setLayout(layout)
 
     def Ajouter_Etudiant(self):
         num_apogee = self.num_apogee.text()
@@ -422,20 +404,15 @@ class Etudiant(QMainWindow):
                 QMessageBox.warning(self, "Erreur", "L'etudiant avec cet Apogee existe deja!")
                 return
 
-            curs.execute("""
-                INSERT INTO Etudiant (num_apogee, nom, prenom, cin, date_naiss)
-                VALUES (?, ?, ?, ?, ?);
-            """, (num_apogee, nom, prenom, cin, date_naiss))
+            curs.execute("INSERT INTO Etudiant (num_apogee, nom, prenom, cin, date_naiss) VALUES (?, ?, ?, ?, ?);", (num_apogee, nom, prenom, cin, date_naiss))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Etudiant ajouté avec succès!")
-            self.clear_inputs()  # Reset form fields after adding the student
-            self.Lister_Etudiant()  # Refresh the student list
+            self.clear_inputs()
+            self.Lister_Etudiant()
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
-        except Exception as e:
-            print(f"Error: {e}")
 
     def Lister_Etudiant(self):
         self.table.setRowCount(0)
@@ -452,14 +429,13 @@ class Etudiant(QMainWindow):
                 for j, data in enumerate(etu):
                     self.table.setItem(i, j, QTableWidgetItem(str(data)))
 
-                # Delete Button
                 del_btn = QPushButton("Supprimer")
                 del_btn.clicked.connect(lambda _, id=etu[0]: self.Sup_Etudiant(id))
-                self.table.setCellWidget(i, 4, del_btn)
+                self.table.setCellWidget(i, 5, del_btn)
 
                 update_btn = QPushButton("Modifier")
                 update_btn.clicked.connect(lambda _, id=etu[0]: self.Modifier_Etudiant(id))
-                self.table.setCellWidget(i, 5, update_btn)
+                self.table.setCellWidget(i, 6, update_btn)
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
@@ -472,7 +448,7 @@ class Etudiant(QMainWindow):
             conn.close()
 
             QMessageBox.information(self, "Succès", f"Etudiant avec le numéro d'apogée {etu_apogee} supprimé!")
-            self.Lister_Etudiant()  # Correct listing method
+            self.Lister_Etudiant()
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
@@ -505,8 +481,6 @@ class Etudiant(QMainWindow):
                 QMessageBox.critical(self, "Erreur", f"Aucun étudiant trouvé avec l'Apogée {etu_apogee}!")
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
-        except Exception as e:
-            print(f"Error: {e}")
 
     def Applique_Modification(self, etu_apogee):
         num_apogee = self.num_apogee.text()
@@ -522,37 +496,30 @@ class Etudiant(QMainWindow):
         try:
             conn = connect_db()
             curs = conn.cursor()
-            curs.execute(""" UPDATE Etudiant
-               SET nom = ?, prenom = ?, cin = ?, date_naiss = ?
-               WHERE num_apogee = ?;""", (nom, prenom, cin, date_naiss, etu_apogee))
+            curs.execute("UPDATE Etudiant SET nom = ?, prenom = ?, cin = ?, date_naiss = ? WHERE num_apogee = ?;", (nom, prenom, cin, date_naiss, etu_apogee))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Etudiant modifié avec succès!")
             self.clear_inputs()
-            self.Lister_Etudiant()  # Correct the listing method for students
-
+            self.Lister_Etudiant()
             self.switch_ajout()
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def switch_ajout(self):
-        self.add_btn.setText("Ajouter Module")
+        self.add_btn.setText("Ajouter Etudiant")
         self.add_btn.clicked.disconnect()
         self.add_btn.clicked.connect(self.Ajouter_Etudiant)
-class InscriptionApp(QMainWindow):
+
+class InscriptionApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Gestion des Inscriptions")
-        self.setGeometry(300, 300, 800, 600)
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
+        self.initUI()
 
-        # Main Layout
-        self.layout = QVBoxLayout()
-        self.central_widget.setLayout(self.layout)
+    def initUI(self):
+        layout = QVBoxLayout()
 
-        # Form Layout
         form_layout = QFormLayout()
         self.module_id_input = QLineEdit()
         self.etudiant_apogee_input = QLineEdit()
@@ -563,33 +530,30 @@ class InscriptionApp(QMainWindow):
         form_layout.addRow("Numéro Apogée:", self.etudiant_apogee_input)
         form_layout.addRow("Note:", self.note_input)
         form_layout.addRow("Validé:", self.valide_input)
-        self.layout.addLayout(form_layout)
+        layout.addLayout(form_layout)
 
-        # Buttons Layout
-        button_layout = QHBoxLayout()
         self.clear_btn = QPushButton("Effacer les Champs")
         self.clear_btn.setFixedWidth(150)
         self.clear_btn.clicked.connect(self.clear_inputs)
-        button_layout.addWidget(self.clear_btn)
 
         self.add_btn = QPushButton("Ajouter Inscription")
         self.add_btn.setFixedWidth(150)
         self.add_btn.clicked.connect(self.ajouter_inscription)
+
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.clear_btn)
         button_layout.addWidget(self.add_btn)
+        layout.addLayout(button_layout)
 
-        self.layout.addLayout(button_layout)
-
-        # Table Widget
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["ID Module", "Numéro Apogée", "Note", "Validé", "Supprimer", "Modifier"])
-        self.layout.addWidget(self.table)
+        layout.addWidget(self.table)
 
-        # Load data into the table
         self.lister_inscriptions()
+        self.setLayout(layout)
 
     def ajouter_inscription(self):
-        """Add a new Inscription to the database."""
         module_id = self.module_id_input.text()
         etudiant_apogee = self.etudiant_apogee_input.text()
         note = self.note_input.text()
@@ -599,7 +563,6 @@ class InscriptionApp(QMainWindow):
             QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
             return
 
-        # Check if module_id exists
         try:
             conn = connect_db()
             curs = conn.cursor()
@@ -608,17 +571,12 @@ class InscriptionApp(QMainWindow):
                 QMessageBox.warning(self, "Erreur", "Le module avec cet ID n'existe pas!")
                 return
 
-            # Check if etudiant_apogee exists
             curs.execute("SELECT 1 FROM Etudiant WHERE num_apogee = ?", (etudiant_apogee,))
             if not curs.fetchone():
                 QMessageBox.warning(self, "Erreur", "L'étudiant avec ce numéro d'apogée n'existe pas!")
                 return
 
-            # Insert the inscription
-            curs.execute("""
-            INSERT INTO Inscrire (module_id, etudiant_apogee, note, valide) 
-            VALUES (?, ?, ?, ?);
-            """, (module_id, etudiant_apogee, note, valide))
+            curs.execute("INSERT INTO Inscrire (module_id, etudiant_apogee, note, valide) VALUES (?, ?, ?, ?);", (module_id, etudiant_apogee, note, valide))
             conn.commit()
             conn.close()
 
@@ -629,7 +587,6 @@ class InscriptionApp(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def lister_inscriptions(self):
-        """List all Inscriptions in the table."""
         self.table.setRowCount(0)
 
         try:
@@ -644,12 +601,10 @@ class InscriptionApp(QMainWindow):
                 for j, data in enumerate(insc):
                     self.table.setItem(i, j, QTableWidgetItem(str(data)))
 
-                # Delete Button
                 del_btn = QPushButton("Supprimer")
                 del_btn.clicked.connect(lambda _, module_id=insc[0], etudiant_apogee=insc[1]: self.supprimer_inscription(module_id, etudiant_apogee))
                 self.table.setCellWidget(i, 4, del_btn)
 
-                # Modify Button
                 mod_btn = QPushButton("Modifier")
                 mod_btn.clicked.connect(lambda _, module_id=insc[0], etudiant_apogee=insc[1]: self.modifier_inscription(module_id, etudiant_apogee))
                 self.table.setCellWidget(i, 5, mod_btn)
@@ -657,7 +612,6 @@ class InscriptionApp(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def supprimer_inscription(self, module_id, etudiant_apogee):
-        """Delete an Inscription from the database."""
         try:
             conn = connect_db()
             curs = conn.cursor()
@@ -671,7 +625,6 @@ class InscriptionApp(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def modifier_inscription(self, module_id, etudiant_apogee):
-        """Load Inscription data into the form for editing."""
         try:
             conn = connect_db()
             curs = conn.cursor()
@@ -692,7 +645,6 @@ class InscriptionApp(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def applique_Modification(self, module_id, etudiant_apogee):
-        """Update an Inscription in the database."""
         note = self.note_input.text()
         valide = self.valide_input.text()
 
@@ -703,16 +655,13 @@ class InscriptionApp(QMainWindow):
         try:
             conn = connect_db()
             curs = conn.cursor()
-            curs.execute(""" UPDATE Inscrire 
-               SET note = ?, valide = ? 
-               WHERE module_id = ? AND etudiant_apogee = ?;""", (note, valide, module_id, etudiant_apogee))
+            curs.execute("UPDATE Inscrire SET note = ?, valide = ? WHERE module_id = ? AND etudiant_apogee = ?;", (note, valide, module_id, etudiant_apogee))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Inscription modifiée avec succès!")
             self.clear_inputs()
             self.lister_inscriptions()
-
             self.add_btn.setText("Ajouter Inscription")
             self.add_btn.clicked.disconnect()
             self.add_btn.clicked.connect(self.ajouter_inscription)
@@ -720,7 +669,6 @@ class InscriptionApp(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def clear_inputs(self):
-        """Clear all input fields."""
         self.module_id_input.clear()
         self.etudiant_apogee_input.clear()
         self.note_input.clear()
@@ -728,6 +676,6 @@ class InscriptionApp(QMainWindow):
 
 # Run the application
 app = QApplication([])
-window = InscriptionApp()
+window = MainWindow()
 window.show()
 app.exec()
