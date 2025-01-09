@@ -341,14 +341,19 @@ class Module(QWidget):
         self.add_btn.clicked.disconnect()
         self.add_btn.clicked.connect(self.Ajouter_Module)
 
-class Etudiant(QWidget):
+class Etudiant(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.setWindowTitle("Gestion des Etudiants")
+        self.setGeometry(300, 300, 700, 500)
+        self.main_widget = QWidget()
+        self.setCentralWidget(self.main_widget)
 
-    def initUI(self):
-        layout = QVBoxLayout()
+        # Main Layout
+        self.layout = QVBoxLayout()
+        self.main_widget.setLayout(self.layout)
 
+        # Form Layout
         form_layout = QFormLayout()
         self.num_apogee = QLineEdit()
         self.nom = QLineEdit()
@@ -360,29 +365,30 @@ class Etudiant(QWidget):
         form_layout.addRow("Nom:", self.nom)
         form_layout.addRow("Prenom:", self.prenom)
         form_layout.addRow("CIN:", self.cin)
-        form_layout.addRow("Date de naissance:", self.date_naiss)
-        layout.addLayout(form_layout)
+        form_layout.addRow("date de naissance:", self.date_naiss)
+        self.layout.addLayout(form_layout)
 
+        # Buttons Layout
         self.clear_btn = QPushButton("Effacer les Champs")
         self.clear_btn.setFixedWidth(150)
         self.clear_btn.clicked.connect(self.clear_inputs)
 
-        self.add_btn = QPushButton("Ajouter Etudiant")
+        self.add_btn = QPushButton("Ajouter Module")
         self.add_btn.setFixedWidth(150)
         self.add_btn.clicked.connect(self.Ajouter_Etudiant)
 
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.clear_btn)
         button_layout.addWidget(self.add_btn)
-        layout.addLayout(button_layout)
+        self.layout.addLayout(button_layout)
 
+        # Table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["Numero d'apogee", "Nom", "Prenom", "CIN", "Date de Naissance", "Supprimer", "Modifier"])
-        layout.addWidget(self.table)
+        self.layout.addWidget(self.table)
 
         self.Lister_Etudiant()
-        self.setLayout(layout)
 
     def Ajouter_Etudiant(self):
         num_apogee = self.num_apogee.text()
@@ -404,15 +410,20 @@ class Etudiant(QWidget):
                 QMessageBox.warning(self, "Erreur", "L'etudiant avec cet Apogee existe deja!")
                 return
 
-            curs.execute("INSERT INTO Etudiant (num_apogee, nom, prenom, cin, date_naiss) VALUES (?, ?, ?, ?, ?);", (num_apogee, nom, prenom, cin, date_naiss))
+            curs.execute("""
+                INSERT INTO Etudiant (num_apogee, nom, prenom, cin, date_naiss)
+                VALUES (?, ?, ?, ?, ?);
+            """, (num_apogee, nom, prenom, cin, date_naiss))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Etudiant ajouté avec succès!")
-            self.clear_inputs()
-            self.Lister_Etudiant()
+            self.clear_inputs()  # Reset form fields after adding the student
+            self.Lister_Etudiant()  # Refresh the student list
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
 
     def Lister_Etudiant(self):
         self.table.setRowCount(0)
@@ -429,13 +440,14 @@ class Etudiant(QWidget):
                 for j, data in enumerate(etu):
                     self.table.setItem(i, j, QTableWidgetItem(str(data)))
 
+                # Delete Button
                 del_btn = QPushButton("Supprimer")
                 del_btn.clicked.connect(lambda _, id=etu[0]: self.Sup_Etudiant(id))
-                self.table.setCellWidget(i, 5, del_btn)
+                self.table.setCellWidget(i, 4, del_btn)
 
                 update_btn = QPushButton("Modifier")
                 update_btn.clicked.connect(lambda _, id=etu[0]: self.Modifier_Etudiant(id))
-                self.table.setCellWidget(i, 6, update_btn)
+                self.table.setCellWidget(i, 5, update_btn)
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
@@ -448,7 +460,7 @@ class Etudiant(QWidget):
             conn.close()
 
             QMessageBox.information(self, "Succès", f"Etudiant avec le numéro d'apogée {etu_apogee} supprimé!")
-            self.Lister_Etudiant()
+            self.Lister_Etudiant()  # Correct listing method
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
@@ -481,6 +493,8 @@ class Etudiant(QWidget):
                 QMessageBox.critical(self, "Erreur", f"Aucun étudiant trouvé avec l'Apogée {etu_apogee}!")
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
 
     def Applique_Modification(self, etu_apogee):
         num_apogee = self.num_apogee.text()
@@ -496,19 +510,22 @@ class Etudiant(QWidget):
         try:
             conn = connect_db()
             curs = conn.cursor()
-            curs.execute("UPDATE Etudiant SET nom = ?, prenom = ?, cin = ?, date_naiss = ? WHERE num_apogee = ?;", (nom, prenom, cin, date_naiss, etu_apogee))
+            curs.execute(""" UPDATE Etudiant
+               SET nom = ?, prenom = ?, cin = ?, date_naiss = ?
+               WHERE num_apogee = ?;""", (nom, prenom, cin, date_naiss, etu_apogee))
             conn.commit()
             conn.close()
 
             QMessageBox.information(self, "Succès", "Etudiant modifié avec succès!")
             self.clear_inputs()
-            self.Lister_Etudiant()
+            self.Lister_Etudiant()  # Correct the listing method for students
+
             self.switch_ajout()
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def switch_ajout(self):
-        self.add_btn.setText("Ajouter Etudiant")
+        self.add_btn.setText("Ajouter Module")
         self.add_btn.clicked.disconnect()
         self.add_btn.clicked.connect(self.Ajouter_Etudiant)
 
