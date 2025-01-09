@@ -1,8 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE Scolarite SYSTEM "scolarite.dtd">
-<?xml-stylesheet type="text/xsl" href="scolarite.xsl"?>
-
-<Scolarite>
+<?xml-stylesheet type="text/xsl" href="scolarite.xsl"?><Scolarite>
     <Etudiants>
         <Etudiant num_apogee="20001256">
             <nom-complet nom="Ali" prenom="Ahmed"/>
@@ -14,11 +12,11 @@
             <cin>L892184</cin>
             <date-naiss>2001-11-06</date-naiss>
         </Etudiant>
-    </Etudiants>
+    <Etudiant num_apogee="1"><nom-complet nom="Mohamed" prenom="Mohamed"/><cin>LC8325</cin><date-naiss>gh</date-naiss></Etudiant></Etudiants>
 
     <Enseignants>
         <Enseignant id="1">
-            <nom-complet nom="Aziz" prenom="Jawad"/>
+            <nom-complet nom="CHAIRI" prenom="Jawad"/>
             <cin>JK90890</cin>
             <departement>Informatique</departement>
         </Enseignant>
@@ -46,20 +44,8 @@
             <matiere>Chimie</matiere>
             <semestre>s2</semestre>
         </Module>
-        <Module id="5" enseignant-id="1">
-            <matiere>Advanced Java</matiere>
-            <semestre>s1</semestre>
-        </Module>
-    </Modules>
+        <Module id="7" enseignant-id="2"><matiere>C#</matiere><semestre>s1</semestre></Module><Module id="5" enseignant-id="2"><matiere>Compilation</matiere><semestre>s5</semestre></Module><Module id="6" enseignant-id="3"><matiere>Zaz</matiere><semestre>s1</semestre></Module></Modules>
 
     <Inscrire>
-        <Inscription module-id="1" etudiant-apogee="20005692">
-            <note>15.5</note>
-            <valide>Oui</valide>
-        </Inscription>
-        <Inscription module-id="5" etudiant-apogee="20001256">
-            <note>8.0</note>
-            <valide>Non</valide>
-        </Inscription>
-    </Inscrire>
+        </Inscrire>
 </Scolarite>
