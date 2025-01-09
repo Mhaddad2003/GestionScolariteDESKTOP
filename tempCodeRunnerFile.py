@@ -1,685 +1,1134 @@
-import tkinter as tk
-from tkinter.font import Font
-from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
-from lxml import etree
+import sqlite3
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtCore import QSize
 
-class Switch:
-    value = None
-    def __new__(class_, value):
-        class_.value = value
-        return value
+# Database Connection
+def connect_db():
+    return sqlite3.connect("Gestion_Scolarite.db")
 
-def case(*args):
-    return any((arg == Switch.value) for arg in args)
+# Main Application Window
+class GestionScolariteApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Gestion Scolarité")
+        self.setGeometry(300, 300, 1200, 800)
+        self.central_widget = QTabWidget()
+        self.setCentralWidget(self.central_widget)
 
-class Inscrire:
-    def __init__(self, filepath):
-        self.filepath = filepath
-        self.tree = None
-        self.root = None
-        self.load_xml()
+        # Add tabs for each table
+        self.central_widget.addTab(EnseignantTab(), "Enseignants")
+        self.central_widget.addTab(EtudiantTab(), "Étudiants")
+        self.central_widget.addTab(ModuleTab(), "Modules")
+        self.central_widget.addTab(InscrireTab(), "Inscriptions")
 
-    def load_xml(self):
+# Enseignant Tab
+class EnseignantTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        # Title Label
+        title_label = QLabel("Gestion des Enseignants")
+        title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 30px;")
+        self.layout.addWidget(title_label)
+
+        # Form Layout
+        form_layout = QFormLayout()
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(50, 20, 50, 20)
+
+        # Input Fields
+        self.nom_input = QLineEdit()
+        self.prenom_input = QLineEdit()
+        self.cin_input = QLineEdit()
+        self.departement_input = QLineEdit()
+
+        # Set placeholder text for inputs
+        self.nom_input.setPlaceholderText("Entrez le nom")
+        self.prenom_input.setPlaceholderText("Entrez le prénom")
+        self.cin_input.setPlaceholderText("Entrez le CIN")
+        self.departement_input.setPlaceholderText("Entrez le département")
+
+        # Style Input Fields
+        input_style = """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        self.nom_input.setStyleSheet(input_style)
+        self.prenom_input.setStyleSheet(input_style)
+        self.cin_input.setStyleSheet(input_style)
+        self.departement_input.setStyleSheet(input_style)
+
+        # Add fields to form layout
+        form_layout.addRow("Nom:", self.nom_input)
+        form_layout.addRow("Prénom:", self.prenom_input)
+        form_layout.addRow("CIN:", self.cin_input)
+        form_layout.addRow("Département:", self.departement_input)
+        self.layout.addLayout(form_layout)
+
+        # Buttons Layout
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+        button_layout.setContentsMargins(50, 0, 50, 0)
+
+        # Clear Button
+        self.clear_btn = QPushButton("Effacer les Champs")
+        self.clear_btn.setFixedWidth(180)
+        self.clear_btn.setIcon(QIcon("clear_icon.png"))
+        self.clear_btn.setIconSize(QSize(20, 20))
+        self.clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.clear_btn.clicked.connect(self.clear_inputs)
+        button_layout.addWidget(self.clear_btn)
+
+        # Add/Update Button
+        self.add_btn = QPushButton("Ajouter Enseignant")
+        self.add_btn.setFixedWidth(180)
+        self.add_btn.setIcon(QIcon("add_icon.png"))
+        self.add_btn.setIconSize(QSize(20, 20))
+        self.add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        self.add_btn.clicked.connect(self.ajouter_enseignant)
+        button_layout.addWidget(self.add_btn)
+
+        self.layout.addLayout(button_layout)
+
+        # Table Widget
+        self.table = QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["ID", "Nom", "Prénom", "CIN", "Département", "Actions"])
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #f5f6fa;
+                border: 2px solid #bdc3c7;
+                border-radius: 10px;
+                padding: 10px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background-color: #34495e;
+                color: white;
+                padding: 10px;
+                border: none;
+                font-size: 14px;
+            }
+            QTableWidget::item {
+                padding: 10px;
+            }
+        """)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.layout.addWidget(self.table)
+
+        # Load data into the table
+        self.lister_enseignants()
+
+    def ajouter_enseignant(self):
+        """Add a new Enseignant to the database."""
+        nom = self.nom_input.text()
+        prenom = self.prenom_input.text()
+        cin = self.cin_input.text()
+        departement = self.departement_input.text()
+
+        if not nom or not prenom or not cin or not departement:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
+
         try:
-            self.tree = etree.parse(self.filepath)
-            self.root = self.tree.getroot()
-        except FileNotFoundError:
-            print(f"Erreur: Fichier '{self.filepath}' n'est pas trouvé. Création d'un nouveau fichier.")
-            self.root = etree.Element("Scolarite")
-            inscrire = etree.SubElement(self.root, "Inscrire")
-            self.tree = etree.ElementTree(self.root)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True, doctype='<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">')
-        except Exception as e:
-            print(f"Erreur lors du chargement du fichier XML: {e}")
-            self.root = etree.Element("Scolarite")
-            inscrire = etree.SubElement(self.root, "Inscrire")
-            self.tree = etree.ElementTree(self.root)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True, doctype='<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">')
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("""
+            INSERT INTO Enseignant (nom, prenom, cin, departement) 
+            VALUES (?, ?, ?, ?);
+            """, (nom, prenom, cin, departement))
+            conn.commit()
+            conn.close()
 
-    def inscrire_etudiant(self, module_id, etu_apo, note, valide):
-        # Check if the student exists
-        etudiant = self.root.find(f".//Etudiant[@num_apogee='{etu_apo}']")
-        if etudiant is None:
-            return False, f"Aucun étudiant trouvé avec le numéro Apogée {etu_apo}."
-
-        # Check if the module exists
-        module = self.root.find(f".//Module[@id='{module_id}']")
-        if module is None:
-            return False, f"Aucun module trouvé avec l'ID {module_id}."
-
-        # Check if the student is already enrolled in the module
-        existing_inscription = self.root.xpath(f".//Inscrire/Inscription[@module-id='{module_id}' and @etudiant-apogee='{etu_apo}']")
-        if existing_inscription:
-            return False, f"L'étudiant avec le numéro Apogée {etu_apo} est déjà inscrit dans le module {module_id}."
-
-        # Add the new inscription
-        insc = self.root.find("Inscrire")
-        if insc is None:
-            insc = etree.SubElement(self.root, "Inscrire")
-
-        inscription = etree.Element("Inscription")
-        inscription.set("module-id", module_id)
-        inscription.set("etudiant-apogee", etu_apo)
-        etree.SubElement(inscription, "note").text = note
-        etree.SubElement(inscription, "valide").text = valide
-        insc.append(inscription)
-        self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-        return True, "Inscription réussie!"
-
-    def modifier_note(self, module_id, etu_apo, note):
-        for ins in self.root.findall("Inscrire/Inscription"):
-            if ins.get("module-id") == module_id and ins.get("etudiant-apogee") == etu_apo:
-                ins.find("note").text = note
-                if int(note) < 10:
-                    ins.find("valide").text = "NV"
-                else:
-                    ins.find("valide").text = "V"
-                self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-                return True, "Note modifiée avec succès!"
-        return False, "Le numéro d'apogee ou l'id de module est incorrect!"
-
-    def supprimer_inscription(self, module_id, etu_apo):
-        for ins in self.root.findall("Inscrire/Inscription"):
-            if ins.get("module-id") == module_id and ins.get("etudiant-apogee") == etu_apo:
-                self.root.find("Inscrire").remove(ins)
-                self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-                return True, "Inscription supprimée avec succès!"
-        return False, "Le numéro d'apogee ou l'id de module est incorrect!"
-
-    def lister_inscription(self):
-        inscriptions = self.root.findall("Inscrire/Inscription")
-        print(f"Liste des inscriptions: {inscriptions}")  # Debugging
-        return inscriptions
-
-class Etudiant:
-    def __init__(self, filepath):
-        self.filepath = filepath
-        try:
-            self.tree = etree.parse(filepath)
-            self.root = self.tree.getroot()
-        except (FileNotFoundError, OSError):
-            print(f"Erreur: Le fichier '{filepath}' n'est pas trouvé. Création d'un nouveau fichier.")
-            self.root = etree.Element("Scolarite")
-            etudiants = etree.SubElement(self.root, "Etudiants")
-            self.tree = etree.ElementTree(self.root)
-            self.tree.write(filepath, encoding='UTF-8', xml_declaration=True, doctype='<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">')
-
-    def ajouter_etudiant(self, num_apogee, nom, prenom, cin, date_naiss):
-        if self.root.find(f".//Etudiant[@num_apogee='{num_apogee}']") is not None:
-            return False, "Un étudiant avec ce numéro Apogée existe déjà."
-        etudiants = self.root.find("Etudiants")
-        etud = etree.SubElement(etudiants, "Etudiant", num_apogee=num_apogee)
-        nom_complet = etree.SubElement(etud, "nom-complet", nom=nom, prenom=prenom)
-        cin_element = etree.SubElement(etud, "cin")
-        cin_element.text = cin
-        date_naiss_element = etree.SubElement(etud, "date-naiss")
-        date_naiss_element.text = date_naiss
-        self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-        return True, "Étudiant ajouté avec succès!"
-
-    def modifier_etudiant(self, num_apogee, nom, prenom, cin, date_naiss):
-        etud = self.root.find(f".//Etudiant[@num_apogee='{num_apogee}']")
-        if etud is not None:
-            etud.find('nom-complet').set('nom', nom)
-            etud.find('nom-complet').set('prenom', prenom)
-            etud.find('cin').text = cin
-            etud.find('date-naiss').text = date_naiss
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-            return True, "Étudiant modifié avec succès!"
-        return False, "Aucun étudiant trouvé avec ce numéro Apogée!"
-
-    def supprimer_etudiant(self, num_apogee):
-        etud = self.root.find(f".//Etudiant[@num_apogee='{num_apogee}']")
-        if etud is not None:
-            etud.getparent().remove(etud)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-            return True, "Étudiant supprimé avec succès!"
-        return False, "Aucun étudiant trouvé avec ce numéro Apogée!"
-
-    def lister_etudiants(self):
-        etudiants = self.root.findall(".//Etudiant")
-        print(f"Liste des étudiants: {etudiants}")  # Debugging
-        return etudiants
-
-class Enseignant:
-    def __init__(self, filepath):
-        self.filepath = filepath
-        self.tree = None
-        self.root = None
-        self.load_xml()
-
-    def load_xml(self):
-        try:
-            self.tree = etree.parse(self.filepath)
-            self.root = self.tree.getroot()
-        except FileNotFoundError:
-            print(f"Erreur: Fichier '{self.filepath}' n'est pas trouvé. Création d'un nouveau fichier.")
-            self.root = etree.Element("Scolarite")
-            enseignants = etree.SubElement(self.root, "Enseignants")
-            self.tree = etree.ElementTree(self.root)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True, doctype='<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">')
-        except Exception as e:
-            print(f"Erreur lors du chargement du fichier XML: {e}")
-            self.root = etree.Element("Scolarite")
-            enseignants = etree.SubElement(self.root, "Enseignants")
-            self.tree = etree.ElementTree(self.root)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True, doctype='<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">')
-
-    def ajouter_enseignant(self, id, nom, prenom, cin, dept):
-        if self.root.find(f".//Enseignant[@id='{id}']") is not None:
-            return False, "Un enseignant avec cet ID existe déjà."
-        enseignants = self.root.find("Enseignants")
-        if enseignants is None:
-            enseignants = etree.SubElement(self.root, "Enseignants")
-        ensg = etree.Element("Enseignant", id=id)
-        nom_complet = etree.SubElement(ensg, "nom-complet", nom=nom, prenom=prenom)
-        cin_element = etree.SubElement(ensg, "cin")
-        cin_element.text = cin
-        departement = etree.SubElement(ensg, "departement")
-        departement.text = dept
-        enseignants.append(ensg)
-        self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-        return True, "Enseignant ajouté avec succès!"
-
-    def modifier_enseignant(self, id, nom, prenom, cin, dept):
-        for ens in self.root.findall("Enseignants/Enseignant"):
-            if ens.get("id") == id:
-                ens.find('nom-complet').set('nom', nom)
-                ens.find('nom-complet').set('prenom', prenom)
-                ens.find('cin').text = cin
-                ens.find('departement').text = dept
-                self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-                return True, "Enseignant modifié avec succès!"
-        return False, "Aucun enseignant trouvé avec cet ID!"
-
-    def supprimer_enseignant(self, id):
-        for ens in self.root.findall("Enseignants/Enseignant"):
-            if ens.get("id") == id:
-                self.root.find("Enseignants").remove(ens)
-                self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-                return True, "Enseignant supprimé avec succès!"
-        return False, "Aucun enseignant trouvé avec cet ID!"
+            QMessageBox.information(self, "Succès", "Enseignant ajouté avec succès!")
+            self.clear_inputs()
+            self.lister_enseignants()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def lister_enseignants(self):
-        enseignants = self.root.findall("Enseignants/Enseignant")
-        print(f"Liste des enseignants: {enseignants}")  # Debugging
-        return enseignants
+        """List all Enseignants in the table."""
+        self.table.setRowCount(0)
 
-class Module:
-    def __init__(self, filepath):
-        self.filepath = filepath
         try:
-            self.tree = etree.parse(filepath)
-            self.root = self.tree.getroot()
-        except (FileNotFoundError, OSError):
-            print(f"Erreur: Le fichier '{filepath}' n'est pas trouvé. Création d'un nouveau fichier.")
-            self.root = etree.Element("Scolarite")
-            modules = etree.SubElement(self.root, "Modules")
-            self.tree = etree.ElementTree(self.root)
-            self.tree.write(filepath, encoding='UTF-8', xml_declaration=True, doctype='<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">')
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM Enseignant;")
+            enseignants = curs.fetchall()
+            conn.close()
 
-    def ajouter_module(self, id, matiere, semestre, enseignant_id):
-        # Check if module with the same ID already exists
-        if self.root.find(f".//Module[@id='{id}']") is not None:
-            return False, "Un module avec cet ID existe déjà."
+            self.table.setRowCount(len(enseignants))
+            for i, ens in enumerate(enseignants):
+                for j, data in enumerate(ens):
+                    self.table.setItem(i, j, QTableWidgetItem(str(data)))
 
-        # Check if enseignant-id exists in the XML file
-        if self.root.find(f".//Enseignant[@id='{enseignant_id}']") is None:
-            return False, f"Aucun enseignant trouvé avec l'ID {enseignant_id}."
+                # Delete Button
+                del_btn = QPushButton("Supprimer")
+                del_btn.setIcon(QIcon("delete_icon.png"))
+                del_btn.setIconSize(QSize(20, 20))
+                del_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #e74c3c;
+                        color: white;
+                        border: none;
+                        padding: 5px;
+                        border-radius: 3px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #c0392b;
+                    }
+                """)
+                del_btn.clicked.connect(lambda _, id=ens[0]: self.supprimer_enseignant(id))
+                self.table.setCellWidget(i, 5, del_btn)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
-        # Add the new module
-        modules = self.root.find("Modules")
-        module = etree.SubElement(modules, "Module", **{"id": id, "enseignant-id": enseignant_id})
-        matiere_elem = etree.SubElement(module, "matiere")
-        matiere_elem.text = matiere
-        semestre_elem = etree.SubElement(module, "semestre")
-        semestre_elem.text = semestre
-        self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-        return True, "Module ajouté avec succès!"
+    def supprimer_enseignant(self, ens_id):
+        """Delete an Enseignant from the database."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("DELETE FROM Enseignant WHERE id = ?", (ens_id,))
+            conn.commit()
+            conn.close()
 
-    def modifier_module(self, id, matiere, semestre, enseignant_id):
-        module = self.root.find(f".//Module[@id='{id}']")
-        if module is not None:
-            # Check if enseignant-id exists in the XML file
-            if self.root.find(f".//Enseignant[@id='{enseignant_id}']") is None:
-                return False, f"Aucun enseignant trouvé avec l'ID {enseignant_id}."
+            QMessageBox.information(self, "Succès", f"Enseignant avec l'id {ens_id} supprimé!")
+            self.lister_enseignants()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
-            module.find('matiere').text = matiere
-            module.find('semestre').text = semestre
-            module.set('enseignant-id', enseignant_id)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-            return True, "Module modifié avec succès!"
-        return False, "Aucun module trouvé avec cet ID!"
+    def clear_inputs(self):
+        """Clear all input fields."""
+        self.nom_input.clear()
+        self.prenom_input.clear()
+        self.cin_input.clear()
+        self.departement_input.clear()
 
-    def supprimer_module(self, id):
-        module = self.root.find(f".//Module[@id='{id}']")
-        if module is not None:
-            module.getparent().remove(module)
-            self.tree.write(self.filepath, encoding='UTF-8', xml_declaration=True)
-            return True, "Module supprimé avec succès!"
-        return False, "Aucun module trouvé avec cet ID!"
+    def modifier_enseignant(self, ens_id):
+        """Load Enseignant data into the form for editing."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT nom, prenom, cin, departement FROM Enseignant WHERE id = ?", (ens_id,))
+            enseignant = curs.fetchone()
+            conn.close()
+
+            if enseignant:
+                self.nom_input.setText(enseignant[0])
+                self.prenom_input.setText(enseignant[1])
+                self.cin_input.setText(enseignant[2])
+                self.departement_input.setText(enseignant[3])
+
+                self.add_btn.setText("Modifier Enseignant")
+                self.add_btn.clicked.disconnect()
+                self.add_btn.clicked.connect(lambda: self.applique_Modification(ens_id))
+            else:
+                QMessageBox.critical(self, "Erreur", f"Aucun enseignant trouvé avec l'id {ens_id}!")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def applique_Modification(self, ens_id):
+        """Update an Enseignant in the database."""
+        nom = self.nom_input.text()
+        prenom = self.prenom_input.text()
+        cin = self.cin_input.text()
+        departement = self.departement_input.text()
+
+        if not nom or not prenom or not cin or not departement:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute(""" UPDATE Enseignant 
+               SET nom = ?, prenom = ?, cin = ?, departement = ? 
+               WHERE id = ?;""", (nom, prenom, cin, departement, ens_id))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", "Enseignant modifié avec succès!")
+            self.clear_inputs()
+            self.lister_enseignants()
+
+            self.add_btn.setText("Ajouter Enseignant")
+            self.add_btn.clicked.disconnect()
+            self.add_btn.clicked.connect(self.ajouter_enseignant)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+# Etudiant Tab
+class EtudiantTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        # Title Label
+        title_label = QLabel("Gestion des Étudiants")
+        title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 30px;")
+        self.layout.addWidget(title_label)
+
+        # Form Layout
+        form_layout = QFormLayout()
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(50, 20, 50, 20)
+
+        # Input Fields
+        self.num_apogee_input = QLineEdit()
+        self.nom_input = QLineEdit()
+        self.prenom_input = QLineEdit()
+        self.cin_input = QLineEdit()
+        self.date_naiss_input = QDateEdit()
+        self.date_naiss_input.setCalendarPopup(True)
+
+        # Set placeholder text for inputs
+        self.num_apogee_input.setPlaceholderText("Entrez le numéro d'apogée")
+        self.nom_input.setPlaceholderText("Entrez le nom")
+        self.prenom_input.setPlaceholderText("Entrez le prénom")
+        self.cin_input.setPlaceholderText("Entrez le CIN")
+
+        # Style Input Fields
+        input_style = """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+            QDateEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QDateEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        self.num_apogee_input.setStyleSheet(input_style)
+        self.nom_input.setStyleSheet(input_style)
+        self.prenom_input.setStyleSheet(input_style)
+        self.cin_input.setStyleSheet(input_style)
+        self.date_naiss_input.setStyleSheet(input_style)
+
+        # Add fields to form layout
+        form_layout.addRow("Numéro Apogée:", self.num_apogee_input)
+        form_layout.addRow("Nom:", self.nom_input)
+        form_layout.addRow("Prénom:", self.prenom_input)
+        form_layout.addRow("CIN:", self.cin_input)
+        form_layout.addRow("Date de Naissance:", self.date_naiss_input)
+        self.layout.addLayout(form_layout)
+
+        # Buttons Layout
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+        button_layout.setContentsMargins(50, 0, 50, 0)
+
+        # Clear Button
+        self.clear_btn = QPushButton("Effacer les Champs")
+        self.clear_btn.setFixedWidth(180)
+        self.clear_btn.setIcon(QIcon("clear_icon.png"))
+        self.clear_btn.setIconSize(QSize(20, 20))
+        self.clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.clear_btn.clicked.connect(self.clear_inputs)
+        button_layout.addWidget(self.clear_btn)
+
+        # Add/Update Button
+        self.add_btn = QPushButton("Ajouter Étudiant")
+        self.add_btn.setFixedWidth(180)
+        self.add_btn.setIcon(QIcon("add_icon.png"))
+        self.add_btn.setIconSize(QSize(20, 20))
+        self.add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        self.add_btn.clicked.connect(self.ajouter_etudiant)
+        button_layout.addWidget(self.add_btn)
+
+        self.layout.addLayout(button_layout)
+
+        # Table Widget
+        self.table = QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["Numéro Apogée", "Nom", "Prénom", "CIN", "Date de Naissance", "Actions"])
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #f5f6fa;
+                border: 2px solid #bdc3c7;
+                border-radius: 10px;
+                padding: 10px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background-color: #34495e;
+                color: white;
+                padding: 10px;
+                border: none;
+                font-size: 14px;
+            }
+            QTableWidget::item {
+                padding: 10px;
+            }
+        """)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.layout.addWidget(self.table)
+
+        # Load data into the table
+        self.lister_etudiants()
+
+    def ajouter_etudiant(self):
+        """Add a new Étudiant to the database."""
+        num_apogee = self.num_apogee_input.text()
+        nom = self.nom_input.text()
+        prenom = self.prenom_input.text()
+        cin = self.cin_input.text()
+        date_naiss = self.date_naiss_input.date().toString("yyyy-MM-dd")
+
+        if not num_apogee or not nom or not prenom or not cin:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("""
+            INSERT INTO Etudiant (num_apogee, nom, prenom, cin, date_naiss) 
+            VALUES (?, ?, ?, ?, ?);
+            """, (num_apogee, nom, prenom, cin, date_naiss))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", "Étudiant ajouté avec succès!")
+            self.clear_inputs()
+            self.lister_etudiants()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def lister_etudiants(self):
+        """List all Étudiants in the table."""
+        self.table.setRowCount(0)
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM Etudiant;")
+            etudiants = curs.fetchall()
+            conn.close()
+
+            self.table.setRowCount(len(etudiants))
+            for i, etud in enumerate(etudiants):
+                for j, data in enumerate(etud):
+                    self.table.setItem(i, j, QTableWidgetItem(str(data)))
+
+                # Delete Button
+                del_btn = QPushButton("Supprimer")
+                del_btn.setIcon(QIcon("delete_icon.png"))
+                del_btn.setIconSize(QSize(20, 20))
+                del_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #e74c3c;
+                        color: white;
+                        border: none;
+                        padding: 5px;
+                        border-radius: 3px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #c0392b;
+                    }
+                """)
+                del_btn.clicked.connect(lambda _, num_apogee=etud[0]: self.supprimer_etudiant(num_apogee))
+                self.table.setCellWidget(i, 5, del_btn)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def supprimer_etudiant(self, num_apogee):
+        """Delete an Étudiant from the database."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("DELETE FROM Etudiant WHERE num_apogee = ?", (num_apogee,))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", f"Étudiant avec le numéro d'apogée {num_apogee} supprimé!")
+            self.lister_etudiants()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def clear_inputs(self):
+        """Clear all input fields."""
+        self.num_apogee_input.clear()
+        self.nom_input.clear()
+        self.prenom_input.clear()
+        self.cin_input.clear()
+        self.date_naiss_input.setDate(self.date_naiss_input.minimumDate())
+
+    def modifier_etudiant(self, num_apogee):
+        """Load Étudiant data into the form for editing."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT nom, prenom, cin, date_naiss FROM Etudiant WHERE num_apogee = ?", (num_apogee,))
+            etudiant = curs.fetchone()
+            conn.close()
+
+            if etudiant:
+                self.nom_input.setText(etudiant[0])
+                self.prenom_input.setText(etudiant[1])
+                self.cin_input.setText(etudiant[2])
+                self.date_naiss_input.setDate(etudiant[3])
+
+                self.add_btn.setText("Modifier Étudiant")
+                self.add_btn.clicked.disconnect()
+                self.add_btn.clicked.connect(lambda: self.applique_Modification(num_apogee))
+            else:
+                QMessageBox.critical(self, "Erreur", f"Aucun étudiant trouvé avec le numéro d'apogée {num_apogee}!")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def applique_Modification(self, num_apogee):
+        """Update an Étudiant in the database."""
+        nom = self.nom_input.text()
+        prenom = self.prenom_input.text()
+        cin = self.cin_input.text()
+        date_naiss = self.date_naiss_input.date().toString("yyyy-MM-dd")
+
+        if not nom or not prenom or not cin:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute(""" UPDATE Etudiant 
+               SET nom = ?, prenom = ?, cin = ?, date_naiss = ? 
+               WHERE num_apogee = ?;""", (nom, prenom, cin, date_naiss, num_apogee))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", "Étudiant modifié avec succès!")
+            self.clear_inputs()
+            self.lister_etudiants()
+
+            self.add_btn.setText("Ajouter Étudiant")
+            self.add_btn.clicked.disconnect()
+            self.add_btn.clicked.connect(self.ajouter_etudiant)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+# Module Tab
+class ModuleTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        # Title Label
+        title_label = QLabel("Gestion des Modules")
+        title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 30px;")
+        self.layout.addWidget(title_label)
+
+        # Form Layout
+        form_layout = QFormLayout()
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(50, 20, 50, 20)
+
+        # Input Fields
+        self.enseignant_id_input = QLineEdit()
+        self.matiere_input = QLineEdit()
+        self.semestre_input = QLineEdit()
+
+        # Set placeholder text for inputs
+        self.enseignant_id_input.setPlaceholderText("Entrez l'ID de l'enseignant")
+        self.matiere_input.setPlaceholderText("Entrez la matière")
+        self.semestre_input.setPlaceholderText("Entrez le semestre")
+
+        # Style Input Fields
+        input_style = """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        self.enseignant_id_input.setStyleSheet(input_style)
+        self.matiere_input.setStyleSheet(input_style)
+        self.semestre_input.setStyleSheet(input_style)
+
+        # Add fields to form layout
+        form_layout.addRow("ID Enseignant:", self.enseignant_id_input)
+        form_layout.addRow("Matière:", self.matiere_input)
+        form_layout.addRow("Semestre:", self.semestre_input)
+        self.layout.addLayout(form_layout)
+
+        # Buttons Layout
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+        button_layout.setContentsMargins(50, 0, 50, 0)
+
+        # Clear Button
+        self.clear_btn = QPushButton("Effacer les Champs")
+        self.clear_btn.setFixedWidth(180)
+        self.clear_btn.setIcon(QIcon("clear_icon.png"))
+        self.clear_btn.setIconSize(QSize(20, 20))
+        self.clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.clear_btn.clicked.connect(self.clear_inputs)
+        button_layout.addWidget(self.clear_btn)
+
+        # Add/Update Button
+        self.add_btn = QPushButton("Ajouter Module")
+        self.add_btn.setFixedWidth(180)
+        self.add_btn.setIcon(QIcon("add_icon.png"))
+        self.add_btn.setIconSize(QSize(20, 20))
+        self.add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        self.add_btn.clicked.connect(self.ajouter_module)
+        button_layout.addWidget(self.add_btn)
+
+        self.layout.addLayout(button_layout)
+
+        # Table Widget
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["ID", "ID Enseignant", "Matière", "Semestre", "Actions"])
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #f5f6fa;
+                border: 2px solid #bdc3c7;
+                border-radius: 10px;
+                padding: 10px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background-color: #34495e;
+                color: white;
+                padding: 10px;
+                border: none;
+                font-size: 14px;
+            }
+            QTableWidget::item {
+                padding: 10px;
+            }
+        """)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.layout.addWidget(self.table)
+
+        # Load data into the table
+        self.lister_modules()
+
+    def ajouter_module(self):
+        """Add a new Module to the database."""
+        enseignant_id = self.enseignant_id_input.text()
+        matiere = self.matiere_input.text()
+        semestre = self.semestre_input.text()
+
+        if not enseignant_id or not matiere or not semestre:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("""
+            INSERT INTO Module (Enseignant_id, matiere, semestre) 
+            VALUES (?, ?, ?);
+            """, (enseignant_id, matiere, semestre))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", "Module ajouté avec succès!")
+            self.clear_inputs()
+            self.lister_modules()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
     def lister_modules(self):
-        modules = self.root.findall(".//Module")
-        print(f"Liste des modules: {modules}")  # Debugging
-        return modules
+        """List all Modules in the table."""
+        self.table.setRowCount(0)
 
-class ScolariteApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Gestion de Scolarité")
-        self.root.geometry("1100x500")
-        self.center_window(self.root, 1100, 500)
-        self.root.configure(bg="#2c3e50")
-        self.root.iconbitmap("images/appIcone.ico")
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM Module;")
+            modules = curs.fetchall()
+            conn.close()
 
-        self.filepath = "scolarite.xml"
-        self.etudiant = Etudiant(self.filepath)
-        self.enseignant = Enseignant(self.filepath)
-        self.module = Module(self.filepath)
-        self.inscrire = Inscrire(self.filepath)
+            self.table.setRowCount(len(modules))
+            for i, mod in enumerate(modules):
+                for j, data in enumerate(mod):
+                    self.table.setItem(i, j, QTableWidgetItem(str(data)))
 
-        self.pages = {}
-        self.form_entries = {}
-        self.tables = {}
-        self.selected_item = None
+                # Delete Button
+                del_btn = QPushButton("Supprimer")
+                del_btn.setIcon(QIcon("delete_icon.png"))
+                del_btn.setIconSize(QSize(20, 20))
+                del_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #e74c3c;
+                        color: white;
+                        border: none;
+                        padding: 5px;
+                        border-radius: 3px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #c0392b;
+                    }
+                """)
+                del_btn.clicked.connect(lambda _, id=mod[0]: self.supprimer_module(id))
+                self.table.setCellWidget(i, 4, del_btn)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
-        self.create_main_page()
-        self.create_secondary_pages()
+    def supprimer_module(self, mod_id):
+        """Delete a Module from the database."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("DELETE FROM Module WHERE id = ?", (mod_id,))
+            conn.commit()
+            conn.close()
 
-        self.show_page("main")
+            QMessageBox.information(self, "Succès", f"Module avec l'id {mod_id} supprimé!")
+            self.lister_modules()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
-    def center_window(self, window, width, height):
-        screen_width = window.winfo_screenwidth()
-        screen_height = window.winfo_screenheight()
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-        window.geometry(f"{width}x{height}+{x}+{y}")
+    def clear_inputs(self):
+        """Clear all input fields."""
+        self.enseignant_id_input.clear()
+        self.matiere_input.clear()
+        self.semestre_input.clear()
 
-    def on_hover(self, event):
-        event.widget.configure(bg="#16a085")
+    def modifier_module(self, mod_id):
+        """Load Module data into the form for editing."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT Enseignant_id, matiere, semestre FROM Module WHERE id = ?", (mod_id,))
+            module = curs.fetchone()
+            conn.close()
 
-    def on_leave(self, event):
-        event.widget.configure(bg="#1abc9c")
+            if module:
+                self.enseignant_id_input.setText(str(module[0]))
+                self.matiere_input.setText(module[1])
+                self.semestre_input.setText(module[2])
 
-    def create_main_page(self):
-        page = tk.Frame(self.root, bg="#2c3e50")
-        self.pages["main"] = page
-
-        title_font = Font(family="Arial Black", size=20, weight="bold")
-        button_font = Font(family="Arial", size=14, weight="bold")
-
-        title_label = tk.Label(
-            page,
-            text="Gestion de Scolarité",
-            font=title_font,
-            bg="#2c3e50",
-            fg="white"
-        )
-        title_label.place(relx=0.5, y=60, anchor="center")
-
-        main_frame = tk.Frame(page, bg="#2c3e50")
-        main_frame.pack(expand=True)
-
-        image_path = "images/image.png"
-        img = Image.open(image_path)
-        img_resized = img.resize((750, 242))
-        self.photo = ImageTk.PhotoImage(img_resized)
-        image_label = tk.Label(main_frame, image=self.photo, bg="#2c3e50")
-        image_label.grid(row=0, column=0, rowspan=4, padx=10, pady=12, sticky="n")
-
-        button_frame = tk.Frame(main_frame, bg="#2c3e50")
-        button_frame.grid(row=0, column=1, padx=10, pady=10, sticky="n")
-
-        buttons = [
-            ("Gérer Étudiants", "form_etudiant"),
-            ("Gérer Enseignants", "form_enseignant"),
-            ("Gérer Modules", "form_module"),
-            ("Gérer Inscriptions", "form_inscription")
-        ]
-
-        for i, (text, page_name) in enumerate(buttons):
-            button = tk.Button(
-                button_frame,
-                text=text,
-                font=button_font,
-                bg="#1abc9c",
-                fg="white",
-                activebackground="#16a085",
-                activeforeground="white",
-                bd=0,
-                padx=20,
-                pady=10,
-                command=lambda p=page_name: self.show_page(p),
-                cursor="hand2"
-            )
-            button.bind("<Enter>", self.on_hover)
-            button.bind("<Leave>", self.on_leave)
-            button.grid(row=i, column=0, pady=5, sticky="ew")
-
-        button_frame.grid_columnconfigure(0, weight=1)
-
-        self.add_footer(page)
-
-    def add_footer(self, page):
-        footer = tk.Label(
-            page,
-            text="© 2025 Scolarité App. Tous droits réservés.",
-            font=("Arial", 10),
-            bg="#2c3e50",
-            fg="white"
-        )
-        footer.pack(side=tk.BOTTOM, pady=10)
-
-    def create_form_page(self, page_name, title, fields, table_columns):
-        page = tk.Frame(self.root, bg="#2c3e50")
-        self.pages[page_name] = page
-
-        title_font = Font(family="Arial Black", size=20, weight="bold")
-        label_font = Font(family="Arial", size=12, weight="bold")
-        entry_font = Font(family="Arial", size=12)
-
-        title_label = tk.Label(
-            page,
-            text=title,
-            font=title_font,
-            bg="#2c3e50",
-            fg="white"
-        )
-        title_label.place(relx=0.5, y=60, anchor="center")
-
-        form_frame = tk.Frame(page, bg="#2c3e50")
-        form_frame.place(relx=0.3, rely=0.5, anchor="center")
-
-        self.form_entries[page_name] = {}
-
-        for i, (field_name, field_type, *extra) in enumerate(fields):
-            label = tk.Label(
-                form_frame,
-                text=field_name,
-                font=label_font,
-                bg="#2c3e50",
-                fg="white"
-            )
-            label.grid(row=i, column=0, padx=10, pady=5, sticky="w")
-
-            if field_type == "entry":
-                entry = tk.Entry(form_frame, font=entry_font)
-                entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
-                self.form_entries[page_name][field_name] = entry
-
-        form_frame.grid_columnconfigure(1, weight=1)
-
-        table_frame = tk.Frame(page, bg="#2c3e50")
-        table_frame.place(relx=0.71, rely=0.5, anchor="center")
-
-        table = ttk.Treeview(table_frame, columns=table_columns, show="headings")
-        for col in table_columns:
-            table.heading(col, text=col)
-            table.column(col, width=100)
-
-        table.grid(row=0, column=0, padx=10, pady=10)
-
-        scrollbar = tk.Scrollbar(table_frame, orient="vertical", command=table.yview)
-        table.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky='ns', padx=5, pady=10)
-
-        table.bind("<ButtonRelease-1>", lambda event: self.on_table_row_select(page_name, table_columns))
-
-        self.tables[page_name] = table
-
-        button_frame = tk.Frame(page, bg="#2c3e50")
-        button_frame.place(relx=0.5, rely=0.85, anchor="center")
-
-        def on_hover_x_button(event):
-            event.widget.configure(bg="#0c0c0c")
-
-        def on_leave_x_button(event):
-            event.widget.configure(bg="Black")
-
-        def on_hover_delete_button(event):
-            event.widget.configure(bg="#e74c3c")
-
-        def on_leave_delete_button(event):
-            event.widget.configure(bg="#c0392b")
-
-        def clear_inputs():
-            for entry in self.form_entries[page_name].values():
-                if isinstance(entry, tk.Entry):
-                    entry.delete(0, tk.END)
-
-        def add_to_table():
-            data = []
-            for col in table_columns:
-                data.append(self.form_entries[page_name][col].get())
-            if page_name == "form_etudiant":
-                success, message = self.etudiant.ajouter_etudiant(data[0], data[1], data[2], data[3], data[4])
-                if success:
-                    self.tables[page_name].insert("", "end", values=data)
-                    clear_inputs()
-                else:
-                    messagebox.showwarning("Erreur", message)
-            elif page_name == "form_enseignant":
-                success, message = self.enseignant.ajouter_enseignant(data[0], data[1], data[2], data[3], data[4])
-                if success:
-                    self.tables[page_name].insert("", "end", values=data)
-                    clear_inputs()
-                else:
-                    messagebox.showwarning("Erreur", message)
-            elif page_name == "form_module":
-                success, message = self.module.ajouter_module(data[0], data[1], data[2], data[3])
-                if success:
-                    self.tables[page_name].insert("", "end", values=data)
-                    clear_inputs()
-                else:
-                    messagebox.showwarning("Erreur", message)
-            elif page_name == "form_inscription":
-                success, message = self.inscrire.inscrire_etudiant(data[0], data[1], data[2], data[3])
-                if success:
-                    self.tables[page_name].insert("", "end", values=data)
-                    clear_inputs()
-                else:
-                    messagebox.showwarning("Erreur", message)
-
-        def delete_from_table():
-            selected_item = self.tables[page_name].selection()
-            if selected_item:
-                data = self.tables[page_name].item(selected_item, "values")
-                if page_name == "form_etudiant":
-                    success, message = self.etudiant.supprimer_etudiant(data[0])
-                    if success:
-                        self.tables[page_name].delete(selected_item)
-                        clear_inputs()
-                    else:
-                        messagebox.showwarning("Erreur", message)
-                elif page_name == "form_enseignant":
-                    success, message = self.enseignant.supprimer_enseignant(data[0])
-                    if success:
-                        self.tables[page_name].delete(selected_item)
-                        clear_inputs()
-                    else:
-                        messagebox.showwarning("Erreur", message)
-                elif page_name == "form_module":
-                    success, message = self.module.supprimer_module(data[0])
-                    if success:
-                        self.tables[page_name].delete(selected_item)
-                        clear_inputs()
-                    else:
-                        messagebox.showwarning("Erreur", message)
-                elif page_name == "form_inscription":
-                    success, message = self.inscrire.supprimer_inscription(data[0], data[1])
-                    if success:
-                        self.tables[page_name].delete(selected_item)
-                        clear_inputs()
-                    else:
-                        messagebox.showwarning("Erreur", message)
-
-        def modify_table():
-            if not self.selected_item:
-                messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une ligne à modifier!")
-                return
-
-            data = []
-            for col in table_columns:
-                data.append(self.form_entries[page_name][col].get())
-            if page_name == "form_etudiant":
-                success, message = self.etudiant.modifier_etudiant(data[0], data[1], data[2], data[3], data[4])
-                if success:
-                    self.tables[page_name].item(self.selected_item, values=data)
-                    clear_inputs()
-                    self.selected_item = None
-                else:
-                    messagebox.showwarning("Erreur", message)
-            elif page_name == "form_enseignant":
-                success, message = self.enseignant.modifier_enseignant(data[0], data[1], data[2], data[3], data[4])
-                if success:
-                    self.tables[page_name].item(self.selected_item, values=data)
-                    clear_inputs()
-                    self.selected_item = None
-                else:
-                    messagebox.showwarning("Erreur", message)
-            elif page_name == "form_module":
-                success, message = self.module.modifier_module(data[0], data[1], data[2], data[3])
-                if success:
-                    self.tables[page_name].item(self.selected_item, values=data)
-                    clear_inputs()
-                    self.selected_item = None
-                else:
-                    messagebox.showwarning("Erreur", message)
-            elif page_name == "form_inscription":
-                success, message = self.inscrire.modifier_note(data[0], data[1], data[2])
-                if success:
-                    self.tables[page_name].item(self.selected_item, values=data)
-                    clear_inputs()
-                    self.selected_item = None
-                else:
-                    messagebox.showwarning("Erreur", message)
-
-        buttons = [
-            ("Vider", clear_inputs),
-            ("Ajouter", add_to_table),
-            ("Modifier", modify_table),
-            ("Supprimer", delete_from_table)
-        ]
-
-        for i, (text, command) in enumerate(buttons):
-            button = tk.Button(
-                button_frame,
-                text=text,
-                font=("Arial", 12, "bold"),
-                bg="Black" if text != "Supprimer" else "#c0392b",
-                fg="white",
-                activebackground="#0c0c0c" if text != "Supprimer" else "#e74c3c",
-                activeforeground="white",
-                bd=0,
-                padx=20,
-                pady=10,
-                command=command,
-                cursor="hand2"
-            )
-            if text == "Supprimer":
-                button.bind("<Enter>", on_hover_delete_button)
-                button.bind("<Leave>", on_leave_delete_button)
+                self.add_btn.setText("Modifier Module")
+                self.add_btn.clicked.disconnect()
+                self.add_btn.clicked.connect(lambda: self.applique_Modification(mod_id))
             else:
-                button.bind("<Enter>", on_hover_x_button)
-                button.bind("<Leave>", on_leave_x_button)
-            button.grid(row=0, column=i, padx=5, pady=10, sticky="ew")
+                QMessageBox.critical(self, "Erreur", f"Aucun module trouvé avec l'id {mod_id}!")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
-        button_frame.grid_columnconfigure(0, weight=1)
-        button_frame.grid_columnconfigure(1, weight=1)
-        button_frame.grid_columnconfigure(2, weight=1)
+    def applique_Modification(self, mod_id):
+        """Update a Module in the database."""
+        enseignant_id = self.enseignant_id_input.text()
+        matiere = self.matiere_input.text()
+        semestre = self.semestre_input.text()
 
-        back_button = tk.Button(
-            page,
-            text="Retour",
-            font=("Arial", 12, "bold"),
-            bg="#1abc9c",
-            fg="white",
-            activebackground="#16a085",
-            activeforeground="white",
-            bd=0,
-            padx=20,
-            pady=10,
-            command=lambda: self.show_page("main"),
-            cursor="hand2"
-        )
-        back_button.place(relx=0.9, y=60, anchor="center")
-        back_button.bind("<Enter>", self.on_hover)
-        back_button.bind("<Leave>", self.on_leave)
+        if not enseignant_id or not matiere or not semestre:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
 
-        page.pack_propagate(False)
-        page.pack(fill="both", expand=True)
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute(""" UPDATE Module 
+               SET Enseignant_id = ?, matiere = ?, semestre = ? 
+               WHERE id = ?;""", (enseignant_id, matiere, semestre, mod_id))
+            conn.commit()
+            conn.close()
 
-        self.add_footer(page)
+            QMessageBox.information(self, "Succès", "Module modifié avec succès!")
+            self.clear_inputs()
+            self.lister_modules()
 
-    def on_table_row_select(self, page_name, table_columns):
-        self.selected_item = self.tables[page_name].selection()
-        if self.selected_item:
-            row_values = self.tables[page_name].item(self.selected_item, "values")
-            for col, value in zip(table_columns, row_values):
-                self.form_entries[page_name][col].delete(0, tk.END)
-                self.form_entries[page_name][col].insert(0, value)
+            self.add_btn.setText("Ajouter Module")
+            self.add_btn.clicked.disconnect()
+            self.add_btn.clicked.connect(self.ajouter_module)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
-    def create_secondary_pages(self):
-        self.create_form_page("form_etudiant", "Espace des Étudiants", [
-            ("Appoge", "entry"),
-            ("Nom", "entry"),
-            ("Prenom", "entry"),
-            ("CIN", "entry"),
-            ("Date Naissance", "entry")
-        ], ["Appoge", "Nom", "Prenom", "CIN", "Date Naissance"])
+# Inscrire Tab
+class InscrireTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
 
-        self.create_form_page("form_module", "Espace des Modules", [
-            ("Id", "entry"),
-            ("Matière", "entry"),
-            ("Semestre", "entry"),
-            ("Enseignant ID", "entry")
-        ], ["Id", "Matière", "Semestre", "Enseignant ID"])
+        # Title Label
+        title_label = QLabel("Gestion des Inscriptions")
+        title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 30px;")
+        self.layout.addWidget(title_label)
 
-        self.create_form_page("form_enseignant", "Espace des Enseignants", [
-            ("Id", "entry"),
-            ("Nom", "entry"),
-            ("Prenom", "entry"),
-            ("CIN", "entry"),
-            ("Département", "entry")
-        ], ["Id", "Nom", "Prenom", "CIN", "Département"])
+        # Form Layout
+        form_layout = QFormLayout()
+        form_layout.setSpacing(20)
+        form_layout.setContentsMargins(50, 20, 50, 20)
 
-        self.create_form_page("form_inscription", "Espace des Inscriptions", [
-            ("Id-Module", "entry"),
-            ("Id-Etudiant", "entry"),
-            ("Note", "entry"),
-            ("Valide", "entry")
-        ], ["Id-Module","Id-Etudiant",  "Note", "Valide"])
+        # Input Fields
+        self.module_id_input = QLineEdit()
+        self.etudiant_apogee_input = QLineEdit()
+        self.note_input = QLineEdit()
+        self.valide_input = QLineEdit()
 
-    def show_page(self, page_name):
-        for page in self.pages.values():
-            page.pack_forget()
-        self.pages[page_name].pack(fill="both", expand=True)
-        self.current_page = page_name
+        # Set placeholder text for inputs
+        self.module_id_input.setPlaceholderText("Entrez l'ID du module")
+        self.etudiant_apogee_input.setPlaceholderText("Entrez le numéro d'apogée")
+        self.note_input.setPlaceholderText("Entrez la note")
+        self.valide_input.setPlaceholderText("Entrez 'Oui' ou 'Non'")
 
-        if page_name == "form_etudiant":
-            self.load_data_to_table(page_name, self.etudiant.lister_etudiants(), ["num_apogee", "nom", "prenom", "cin", "date-naiss"])
-        elif page_name == "form_enseignant":
-            self.load_data_to_table(page_name, self.enseignant.lister_enseignants(), ["id", "nom", "prenom", "cin", "departement"])
-        elif page_name == "form_module":
-            self.load_data_to_table(page_name, self.module.lister_modules(), ["id", "matiere", "semestre", "enseignant-id"])
-        elif page_name == "form_inscription":
-            self.load_data_to_table(page_name, self.inscrire.lister_inscription(), ["module-id", "etudiant-apogee", "note", "valide"])
+        # Style Input Fields
+        input_style = """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        self.module_id_input.setStyleSheet(input_style)
+        self.etudiant_apogee_input.setStyleSheet(input_style)
+        self.note_input.setStyleSheet(input_style)
+        self.valide_input.setStyleSheet(input_style)
 
-    def load_data_to_table(self, page_name, data, columns):
-        table = self.tables[page_name]
-        table.delete(*table.get_children())
-        for item in data:
-            row = []
-            for col in columns:
-                if col == "nom" or col == "prenom":
-                    row.append(item.find("nom-complet").get(col))
-                else:
-                    row.append(item.get(col) if item.get(col) is not None else item.find(col).text)
-            table.insert("", "end", values=row)
+        # Add fields to form layout
+        form_layout.addRow("ID Module:", self.module_id_input)
+        form_layout.addRow("Numéro Apogée:", self.etudiant_apogee_input)
+        form_layout.addRow("Note:", self.note_input)
+        form_layout.addRow("Validé:", self.valide_input)
+        self.layout.addLayout(form_layout)
 
+        # Buttons Layout
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+        button_layout.setContentsMargins(50, 0, 50, 0)
+
+        # Clear Button
+        self.clear_btn = QPushButton("Effacer les Champs")
+        self.clear_btn.setFixedWidth(180)
+        self.clear_btn.setIcon(QIcon("clear_icon.png"))
+        self.clear_btn.setIconSize(QSize(20, 20))
+        self.clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.clear_btn.clicked.connect(self.clear_inputs)
+        button_layout.addWidget(self.clear_btn)
+
+        # Add/Update Button
+        self.add_btn = QPushButton("Ajouter Inscription")
+        self.add_btn.setFixedWidth(180)
+        self.add_btn.setIcon(QIcon("add_icon.png"))
+        self.add_btn.setIconSize(QSize(20, 20))
+        self.add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        self.add_btn.clicked.connect(self.ajouter_inscription)
+        button_layout.addWidget(self.add_btn)
+
+        self.layout.addLayout(button_layout)
+
+        # Table Widget
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["ID Module", "Numéro Apogée", "Note", "Validé", "Actions"])
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #f5f6fa;
+                border: 2px solid #bdc3c7;
+                border-radius: 10px;
+                padding: 10px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background-color: #34495e;
+                color: white;
+                padding: 10px;
+                border: none;
+                font-size: 14px;
+            }
+            QTableWidget::item {
+                padding: 10px;
+            }
+        """)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.layout.addWidget(self.table)
+
+        # Load data into the table
+        self.lister_inscriptions()
+
+    def ajouter_inscription(self):
+        """Add a new Inscription to the database."""
+        module_id = self.module_id_input.text()
+        etudiant_apogee = self.etudiant_apogee_input.text()
+        note = self.note_input.text()
+        valide = self.valide_input.text()
+
+        if not module_id or not etudiant_apogee or not valide:
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être remplis!")
+            return
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("""
+            INSERT INTO Inscrire (module_id, etudiant_apogee, note, valide) 
+            VALUES (?, ?, ?, ?);
+            """, (module_id, etudiant_apogee, note, valide))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", "Inscription ajoutée avec succès!")
+            self.clear_inputs()
+            self.lister_inscriptions()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def lister_inscriptions(self):
+        """List all Inscriptions in the table."""
+        self.table.setRowCount(0)
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM Inscrire;")
+            inscriptions = curs.fetchall()
+            conn.close()
+
+            self.table.setRowCount(len(inscriptions))
+            for i, insc in enumerate(inscriptions):
+                for j, data in enumerate(insc):
+                    self.table.setItem(i, j, QTableWidgetItem(str(data)))
+
+                # Delete Button
+                del_btn = QPushButton("Supprimer")
+                del_btn.setIcon(QIcon("delete_icon.png"))
+                del_btn.setIconSize(QSize(20, 20))
+                del_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #e74c3c;
+                        color: white;
+                        border: none;
+                        padding: 5px;
+                        border-radius: 3px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #c0392b;
+                    }
+                """)
+                del_btn.clicked.connect(lambda _, module_id=insc[0], etudiant_apogee=insc[1]: self.supprimer_inscription(module_id, etudiant_apogee))
+                self.table.setCellWidget(i, 4, del_btn)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def supprimer_inscription(self, module_id, etudiant_apogee):
+        """Delete an Inscription from the database."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("DELETE FROM Inscrire WHERE module_id = ? AND etudiant_apogee = ?", (module_id, etudiant_apogee))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", f"Inscription supprimée!")
+            self.lister_inscriptions()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def clear_inputs(self):
+        """Clear all input fields."""
+        self.module_id_input.clear()
+        self.etudiant_apogee_input.clear()
+        self.note_input.clear()
+        self.valide_input.clear()
+
+    def modifier_inscription(self, module_id, etudiant_apogee):
+        """Load Inscription data into the form for editing."""
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute("SELECT note, valide FROM Inscrire WHERE module_id = ? AND etudiant_apogee = ?", (module_id, etudiant_apogee))
+            inscription = curs.fetchone()
+            conn.close()
+
+            if inscription:
+                self.note_input.setText(str(inscription[0]))
+                self.valide_input.setText(inscription[1])
+
+                self.add_btn.setText("Modifier Inscription")
+                self.add_btn.clicked.disconnect()
+                self.add_btn.clicked.connect(lambda: self.applique_Modification(module_id, etudiant_apogee))
+            else:
+                QMessageBox.critical(self, "Erreur", f"Aucune inscription trouvée!")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+    def applique_Modification(self, module_id, etudiant_apogee):
+        """Update an Inscription in the database."""
+        note = self.note_input.text()
+        valide = self.valide_input.text()
+
+        if not valide:
+            QMessageBox.warning(self, "Erreur", "Le champ 'Validé' doit être rempli!")
+            return
+
+        try:
+            conn = connect_db()
+            curs = conn.cursor()
+            curs.execute(""" UPDATE Inscrire 
+               SET note = ?, valide = ? 
+               WHERE module_id = ? AND etudiant_apogee = ?;""", (note, valide, module_id, etudiant_apogee))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Succès", "Inscription modifiée avec succès!")
+            self.clear_inputs()
+            self.lister_inscriptions()
+
+            self.add_btn.setText("Ajouter Inscription")
+            self.add_btn.clicked.disconnect()
+            self.add_btn.clicked.connect(self.ajouter_inscription)
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
+
+# Run the application
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ScolariteApp(root)
-    root.mainloop()
+    app = QApplication([])
+    window = GestionScolariteApp()
+    window.show()
+    app.exec()

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!DOCTYPE Scolarite SYSTEM "scolarite.dtd">
+<!DOCTYPE Scolarite SYSTEM "./scolarite.dtd">
 <?xml-stylesheet type="text/xsl" href="scolarite.xsl"?><Scolarite>
     <Etudiants>
         <Etudiant num_apogee="20001256">
@@ -12,7 +12,7 @@
             <cin>L892184</cin>
             <date-naiss>2001-11-06</date-naiss>
         </Etudiant>
-    <Etudiant num_apogee="1"><nom-complet nom="Mohamed" prenom="Mohamed"/><cin>LC8325</cin><date-naiss>gh</date-naiss></Etudiant></Etudiants>
+    <Etudiant num_apogee="21042386"><nom-complet nom="EL HADDAD" prenom="Mohamed"/><cin>LC7261</cin><date-naiss>2003</date-naiss></Etudiant></Etudiants>
 
     <Enseignants>
         <Enseignant id="1">
@@ -32,19 +32,11 @@
             <matiere>Informatique</matiere>
             <semestre>s1</semestre>
         </Module>
-        <Module id="2" enseignant-id="2">
-            <matiere>Mathématiques</matiere>
-            <semestre>s2</semestre>
-        </Module>
         <Module id="3" enseignant-id="2">
             <matiere>Physique</matiere>
             <semestre>s1</semestre>
         </Module>
-        <Module id="4" enseignant-id="2">
-            <matiere>Chimie</matiere>
-            <semestre>s2</semestre>
-        </Module>
-        <Module id="7" enseignant-id="2"><matiere>C#</matiere><semestre>s1</semestre></Module><Module id="5" enseignant-id="2"><matiere>Compilation</matiere><semestre>s5</semestre></Module><Module id="6" enseignant-id="3"><matiere>Zaz</matiere><semestre>s1</semestre></Module></Modules>
+        <Module id="7" enseignant-id="2"><matiere>C#</matiere><semestre>s1</semestre></Module></Modules>
 
     <Inscrire>
         </Inscrire>
