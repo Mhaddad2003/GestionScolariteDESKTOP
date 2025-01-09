@@ -191,7 +191,7 @@ class ScolariteApp:
                 font=("Arial", 12, "bold"),
                 bg="Black" if text != "Supprimer" else "#c0392b",  
                 fg="white",
-                activebackground="#16a085",
+                activebackground="#0c0c0c" if text != "Supprimer" else "#e74c3c",
                 activeforeground="white",
                 bd=0,
                 padx=20,
