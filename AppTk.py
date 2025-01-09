@@ -17,12 +17,6 @@ class ScolariteApp:
     def on_leave(self, event):
         event.widget.configure(bg="#1abc9c")
 
-    def on_hover_delete(self, event):
-        event.widget.configure(bg="#e74c3c")  
-
-    def on_leave_delete(self, event):
-        event.widget.configure(bg="#c0392b") 
-
     def __init__(self, root):
         self.root = root
         self.root.title("Gestion de Scolarité")
@@ -166,11 +160,11 @@ class ScolariteApp:
         button_frame = tk.Frame(page, bg="#2c3e50")
         button_frame.place(relx=0.5, rely=0.85, anchor="center")
 
-        def on_hover_button(event):
-            event.widget.configure(bg="#16a085")
+        def on_hover_x_button(event):
+            event.widget.configure(bg="#0c0c0c")
 
-        def on_leave_button(event):
-            event.widget.configure(bg="#1abc9c")
+        def on_leave_x_button(event):
+            event.widget.configure(bg="Black")
 
         def on_hover_delete_button(event):
             event.widget.configure(bg="#e74c3c")  
@@ -195,7 +189,7 @@ class ScolariteApp:
                 button_frame,
                 text=text,
                 font=("Arial", 12, "bold"),
-                bg="#1abc9c" if text != "Supprimer" else "#c0392b",  
+                bg="Black" if text != "Supprimer" else "#c0392b",  
                 fg="white",
                 activebackground="#16a085",
                 activeforeground="white",
@@ -209,8 +203,8 @@ class ScolariteApp:
                 button.bind("<Enter>", on_hover_delete_button)
                 button.bind("<Leave>", on_leave_delete_button)
             else:
-                button.bind("<Enter>", on_hover_button)
-                button.bind("<Leave>", on_leave_button)
+                button.bind("<Enter>", on_hover_x_button)
+                button.bind("<Leave>", on_leave_x_button)
             button.grid(row=0, column=i, padx=5, pady=10, sticky="ew")
 
         button_frame.grid_columnconfigure(0, weight=1)
@@ -241,7 +235,6 @@ class ScolariteApp:
         self.add_footer(page)  
 
     def add_to_table(self, table_columns):
-        """Ajoute une ligne au tableau à partir des données du formulaire."""
         data = []
         for col in table_columns:
             data.append(self.form_entries[col].get())
@@ -250,18 +243,15 @@ class ScolariteApp:
             self.form_entries[col].delete(0, "end")
 
     def modify_table(self, table_columns):
-        """Modifier une ligne du tableau"""
         pass  
 
     def delete_from_table(self):
-        """Supprimer une ligne du tableau"""
         selected_item = self.table.selection()
         if selected_item:
             self.table.delete(selected_item)
 
     def create_secondary_pages(self):
-        """Crée les pages secondaires avec tableaux."""
-        
+
         self.create_form_page("form_etudiant", "Espace des Étudiants", [
             ("Appoge", "entry"),
             ("Nom", "entry"),
@@ -270,13 +260,11 @@ class ScolariteApp:
             ("Date Naissance", "entry")
         ], ["Appoge", "Nom", "Prenom", "CIN", "Date Naissance"])
 
-
         self.create_form_page("form_module", "Espace des Modules", [
             ("Id", "entry"),
             ("Matière", "entry"),
             ("Semestre", "entry")
         ], ["Id", "Matière", "Semestre"])
-
       
         self.create_form_page("form_enseignant", "Espace des Enseignants", [
             ("Id", "entry"),
@@ -291,14 +279,13 @@ class ScolariteApp:
             ("Id-Module", "entry"),
             ("Note", "entry"),
             ("Valide", "entry")
-        ], ["Id-étudiant", "Id-module", "Note", "Valide"])
+        ], ["Id-Etudiant", "Id-Module", "Note", "Valide"])
 
     def show_page(self, page_name):
         """Affiche la page spécifiée."""
         for page in self.pages.values():
             page.pack_forget()
         self.pages[page_name].pack(fill="both", expand=True)
-
 
 if __name__ == "__main__":
     root = tk.Tk()
