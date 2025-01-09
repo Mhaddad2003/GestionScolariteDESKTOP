@@ -384,7 +384,7 @@ class Etudiant(QMainWindow):
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(["Numero d'apogee", "Nom", "Prenom", "CIN", "Date de Naissance", "Supprimer", "Modifier"])
         self.layout.addWidget(self.table)
 
@@ -443,11 +443,11 @@ class Etudiant(QMainWindow):
                 # Delete Button
                 del_btn = QPushButton("Supprimer")
                 del_btn.clicked.connect(lambda _, id=etu[0]: self.Sup_Etudiant(id))
-                self.table.setCellWidget(i, 4, del_btn)
+                self.table.setCellWidget(i, 5, del_btn)
 
                 update_btn = QPushButton("Modifier")
                 update_btn.clicked.connect(lambda _, id=etu[0]: self.Modifier_Etudiant(id))
-                self.table.setCellWidget(i, 5, update_btn)
+                self.table.setCellWidget(i, 6, update_btn)
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur est survenue: {e}")
 
